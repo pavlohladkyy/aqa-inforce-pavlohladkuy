@@ -1,0 +1,48 @@
+# UI Test Case 1
+Title: Room can be booked with valid data
+Preconditions:
+- User is on the home page of https://automationintesting.online/
+- A room is available for the selected date
+Steps:
+1. Select a valid date range (e.g., 2025-07-01 to 2025-07-03)
+2. Fill in the booking form with valid data:
+   - First Name: John
+   - Last Name: Doe
+   - Email: john.doe@example.com
+   - Phone: 1234567890
+3. Click on 'Book'
+Expected Result:
+- Booking confirmation message appears
+- Room is marked as booked for selected dates
+
+---
+
+# UI Test Case 2
+Title: Room cannot be booked with invalid data
+Preconditions:
+- User is on the home page of https://automationintesting.online/
+Steps:
+1. Select a valid date range
+2. Fill in the booking form with **invalid data**:
+   - First Name: (leave empty)
+   - Last Name: (leave empty)
+   - Email: not-an-email
+   - Phone: abcde
+3. Click on 'Book'
+Expected Result:
+- Form shows validation errors
+- Booking is not submitted
+
+---
+
+# UI Test Case 3
+Title: Previously booked dates appear as unavailable
+Preconditions:
+- A room has already been booked for specific dates (e.g., 2025-07-01 to 2025-07-03)
+Steps:
+1. Navigate to the home page
+2. Open the booking calendar
+3. Try to select previously booked dates
+Expected Result:
+- Booked dates are marked as unavailable (e.g., greyed out or unselectable)
+- User cannot proceed with booking on those dates
