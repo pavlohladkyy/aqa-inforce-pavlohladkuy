@@ -3,6 +3,7 @@ Title: Room can be booked with valid data
 Preconditions:
 - User is on the home page of https://automationintesting.online/
 - A room is available for the selected date
+- User has selected a room type and clicked "Book now" to open the booking form
 Steps:
 1. Select a valid date range (e.g., 2025-07-01 to 2025-07-03)
 2. Fill in the booking form with valid data:
@@ -21,6 +22,7 @@ Expected Result:
 Title: Room cannot be booked with invalid data
 Preconditions:
 - User is on the home page of https://automationintesting.online/
+- User has selected a room type and clicked "Book now" to open the booking form
 Steps:
 1. Select a valid date range
 2. Fill in the booking form with **invalid data**:
@@ -39,6 +41,7 @@ Expected Result:
 Title: Previously booked dates appear as unavailable
 Preconditions:
 - A room has already been booked for specific dates (e.g., 2025-07-01 to 2025-07-03)
+- User has selected a room type and clicked "Book now" to open the booking form
 Steps:
 1. Navigate to the home page
 2. Open the booking calendar
