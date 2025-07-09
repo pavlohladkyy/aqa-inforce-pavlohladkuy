@@ -8,6 +8,7 @@ from playwright.sync_api import sync_playwright, expect
 # Додаємо батьківську директорію до шляху для імпорту utils
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from utils import TestUtils
+from ui_constants import UISelectors, UIConstants, UIHelpers
 
 
 class TestUserUI:
@@ -24,7 +25,7 @@ class TestUserUI:
 
         # Ініціалізація Playwright
         self.playwright = sync_playwright().start()
-        self.browser = self.playwright.chromium.launch(headless=False)  # Встановіть True для headless
+        self.browser = self.playwright.chromium.launch(headless=False)
         self.context = self.browser.new_context()
         self.page = self.context.new_page()
         
@@ -33,7 +34,7 @@ class TestUserUI:
         self.page.wait_for_load_state("domcontentloaded")
         
         # Додаткове очікування повного завантаження сторінки
-        self.page.wait_for_timeout(3000)
+        self.page.wait_for_timeout(UIConstants.TIMEOUT_PAGE_LOAD)
         
         yield
         
@@ -74,9 +75,11 @@ class TestUserUI:
         except Exception as e:
             print(f"[ПОПЕРЕДЖЕННЯ] Не вдалося зупинити playwright: {e}")
 
-
-    def get_future_dates(self, days_from_now=7, checkout_days_later=2):
+    def get_future_dates(self, days_from_now=None, checkout_days_later=None):
         """Допоміжний метод для отримання майбутніх дат для бронювання"""
+        days_from_now = days_from_now or UIConstants.DEFAULT_CHECKIN_DAYS
+        checkout_days_later = checkout_days_later or UIConstants.DEFAULT_CHECKOUT_DAYS
+        
         checkin_date = datetime.now() + timedelta(days=days_from_now)
         checkout_date = checkin_date + timedelta(days=checkout_days_later)
         return {
@@ -92,36 +95,21 @@ class TestUserUI:
         """Очікування завантаження кімнат на сторінці"""
         try:
             # Очікуємо появи секції з кімнатами
-            self.page.wait_for_selector('.row.hotel-room-info, .room, [class*="room"]', timeout=15000)
+            selector = ', '.join(UISelectors.ROOMS_LOADING_SELECTORS)
+            self.page.wait_for_selector(selector, timeout=UIConstants.TIMEOUT_ELEMENTS)
             return True
         except:
             # Якщо специфічні селектори не спрацювали, просто чекаємо
-            self.page.wait_for_timeout(5000)
+            self.page.wait_for_timeout(UIConstants.TIMEOUT_ADDITIONAL_WAIT)
             return False
 
     def find_booking_form_elements(self):
         """Пошук елементів форми бронювання за різними селекторами"""
-        selectors = {
-            'firstname': ['input[placeholder*="Firstname"], input[name="firstname"], input#firstname, .firstname input'],
-            'lastname': ['input[placeholder*="Lastname"], input[name="lastname"], input#lastname, .lastname input'],
-            'email': ['input[placeholder*="Email"], input[name="email"], input#email, .email input, input[type="email"]'],
-            'phone': ['input[placeholder*="Phone"], input[name="phone"], input#phone, .phone input, input[type="tel"]'],
-            'checkin': ['input[placeholder*="Check-in"], input[name="checkin"], input#checkin, .checkin input'],
-            'checkout': ['input[placeholder*="Check-out"], input[name="checkout"], input#checkout, .checkout input'],
-            'book_button': ['button:has-text("Book"), .btn:has-text("Book"), input[type="submit"][value*="Book"]']
-        }
-        
         found_elements = {}
-        for field, possible_selectors in selectors.items():
-            for selector in possible_selectors:
-                try:
-                    element = self.page.locator(selector).first
-                    if element.count() > 0:
-                        found_elements[field] = element
-                        break
-                except:
-                    continue
-        
+        for field, selectors in UISelectors.FORM_SELECTORS.items():
+            element = UIHelpers.find_element_by_selectors(self.page, selectors)
+            if element:
+                found_elements[field] = element
         return found_elements
 
     def fill_booking_form(self, booking_data):
@@ -146,10 +134,9 @@ class TestUserUI:
             elements['checkin'].click()
             # Пробуємо вибрати дату з календаря
             try:
-                # Шукаємо календарний селектор
-                date_selector = f"button:has-text('{dates['checkin_day']}'), .day:has-text('{dates['checkin_day']}'), [data-date*='{dates['checkin']}']"
-                self.page.wait_for_selector(date_selector, timeout=3000)
-                self.page.click(date_selector)
+                calendar_selectors = UIHelpers.get_calendar_selectors(dates['checkin_day'])
+                self.page.wait_for_selector(calendar_selectors[0], timeout=UIConstants.TIMEOUT_CALENDAR)
+                UIHelpers.try_click_element(self.page, calendar_selectors)
             except:
                 # Якщо календар не працює, вводимо дату напряму
                 elements['checkin'].fill(dates["checkin"])
@@ -157,9 +144,9 @@ class TestUserUI:
         if 'checkout' in elements:
             elements['checkout'].click()
             try:
-                date_selector = f"button:has-text('{dates['checkout_day']}'), .day:has-text('{dates['checkout_day']}'), [data-date*='{dates['checkout']}']"
-                self.page.wait_for_selector(date_selector, timeout=3000)
-                self.page.click(date_selector)
+                calendar_selectors = UIHelpers.get_calendar_selectors(dates['checkout_day'])
+                self.page.wait_for_selector(calendar_selectors[0], timeout=UIConstants.TIMEOUT_CALENDAR)
+                UIHelpers.try_click_element(self.page, calendar_selectors)
             except:
                 elements['checkout'].fill(dates["checkout"])
 
@@ -174,11 +161,8 @@ class TestUserUI:
         
         # Шукаємо кнопку бронювання або форму
         try:
-            # Пробуємо знайти кнопку бронювання
-            book_button = self.page.locator('button:has-text("Book"), .btn:has-text("Book"), input[value*="Book"]').first
-            if book_button.count() > 0:
-                book_button.click()
-                self.page.wait_for_timeout(2000)
+            UIHelpers.try_click_element(self.page, UISelectors.BOOKING_BUTTON_SELECTORS)
+            self.page.wait_for_timeout(UIConstants.TIMEOUT_INTERACTION)
         except:
             # Форма бронювання може бути вже видимою
             pass
@@ -192,55 +176,17 @@ class TestUserUI:
             elements['book_button'].click()
         else:
             # Пробуємо знайти кнопку відправки
-            submit_selectors = [
-                'button[type="submit"]',
-                'input[type="submit"]',
-                'button:has-text("Submit")',
-                'button:has-text("Book")',
-                '.btn-primary',
-                '.submit-btn'
-            ]
-            
-            for selector in submit_selectors:
-                try:
-                    submit_btn = self.page.locator(selector).first
-                    if submit_btn.count() > 0:
-                        submit_btn.click()
-                        break
-                except:
-                    continue
+            UIHelpers.try_click_element(self.page, UISelectors.SUBMIT_BUTTON_SELECTORS)
 
         # Очікуємо відповідь
-        self.page.wait_for_timeout(3000)
+        self.page.wait_for_timeout(UIConstants.TIMEOUT_RESPONSE)
 
         # Перевіряємо наявність індикаторів успіху
-        success_indicators = [
-            'text="Booking Successful"',
-            'text="Booking confirmed"',
-            'text="Thank you"',
-            '.alert-success',
-            '.success-message',
-            '[class*="success"]'
-        ]
-        
-        success_found = False
-        for indicator in success_indicators:
-            try:
-                if self.page.locator(indicator).count() > 0:
-                    success_found = True
-                    break
-            except:
-                continue
+        success_found = UIHelpers.check_success_indicators(self.page)
         
         # Якщо немає явного повідомлення про успіх, перевіряємо чи форма зникла або змінилася
         if not success_found:
-            # Перевіряємо чи на іншій сторінці або змінився контент
-            try:
-                confirmation_text = self.page.content()
-                if any(keyword in confirmation_text.lower() for keyword in ['booking', 'confirmed', 'success', 'thank']):
-                    success_found = True
-            except:
-                pass
+            success_found = UIHelpers.check_content_keywords(self.page, UIConstants.SUCCESS_KEYWORDS)
 
         assert success_found or len(self.page.locator('input[placeholder*="Firstname"]').all()) == 0, \
             "Бронювання повинно бути успішним з валідними даними"
@@ -254,10 +200,8 @@ class TestUserUI:
         
         # Шукаємо кнопку бронювання або форму
         try:
-            book_button = self.page.locator('button:has-text("Book"), .btn:has-text("Book")').first
-            if book_button.count() > 0:
-                book_button.click()
-                self.page.wait_for_timeout(2000)
+            UIHelpers.try_click_element(self.page, UISelectors.BOOKING_BUTTON_SELECTORS)
+            self.page.wait_for_timeout(UIConstants.TIMEOUT_INTERACTION)
         except:
             pass
 
@@ -278,44 +222,17 @@ class TestUserUI:
         if 'book_button' in elements:
             elements['book_button'].click()
         else:
-            # Пробуємо знайти кнопку відправки
-            submit_selectors = ['button[type="submit"]', 'input[type="submit"]', 'button:has-text("Book")']
-            for selector in submit_selectors:
-                try:
-                    submit_btn = self.page.locator(selector).first
-                    if submit_btn.count() > 0:
-                        submit_btn.click()
-                        break
-                except:
-                    continue
+            UIHelpers.try_click_element(self.page, UISelectors.SUBMIT_BUTTON_SELECTORS)
 
         # Очікуємо відповідь
-        self.page.wait_for_timeout(2000)
+        self.page.wait_for_timeout(UIConstants.TIMEOUT_FORM_SUBMIT)
 
         # Перевіряємо наявність індикаторів помилки
-        error_indicators = [
-            '.alert-danger',
-            '.error-message',
-            '[class*="error"]',
-            'text="must not be empty"',
-            'text="must be a well-formed email"',
-            'text="must not be null"'
-        ]
-        
-        error_found = False
-        for indicator in error_indicators:
-            try:
-                if self.page.locator(indicator).count() > 0:
-                    error_found = True
-                    break
-            except:
-                continue
+        error_found = UIHelpers.check_error_indicators(self.page)
 
         # Перевіряємо наявність повідомлень про валідацію у формі
         if not error_found:
-            page_content = self.page.content()
-            if any(keyword in page_content.lower() for keyword in ['error', 'invalid', 'required', 'empty']):
-                error_found = True
+            error_found = UIHelpers.check_content_keywords(self.page, UIConstants.ERROR_KEYWORDS)
 
         assert error_found, "Форма повинна показувати помилки валідації з невалідними даними"
 
@@ -333,17 +250,8 @@ class TestUserUI:
             room_id = rooms[0]["roomid"]
             
             # Створюємо бронювання на майбутні дати
-            booking_data = {
-                "roomid": room_id,
-                "firstname": "Test",
-                "lastname": "User",
-                "email": "test@example.com",
-                "phone": "1234567890",
-                "bookingdates": {
-                    "checkin": "2025-08-01",
-                    "checkout": "2025-08-03"
-                }
-            }
+            booking_data = UIConstants.API_TEST_BOOKING_DATA.copy()
+            booking_data["roomid"] = room_id
             
             booking_response = requests.post(self.api_url, json=booking_data)
             if booking_response.status_code == 200:
@@ -359,10 +267,8 @@ class TestUserUI:
         
         # Шукаємо кнопку бронювання або форму
         try:
-            book_button = self.page.locator('button:has-text("Book"), .btn:has-text("Book")').first
-            if book_button.count() > 0:
-                book_button.click()
-                self.page.wait_for_timeout(2000)
+            UIHelpers.try_click_element(self.page, UISelectors.BOOKING_BUTTON_SELECTORS)
+            self.page.wait_for_timeout(UIConstants.TIMEOUT_INTERACTION)
         except:
             pass
 
@@ -371,21 +277,22 @@ class TestUserUI:
         
         if 'checkin' in elements:
             elements['checkin'].click()
-            self.page.wait_for_timeout(1000)
+            self.page.wait_for_timeout(UIConstants.TIMEOUT_CALENDAR_INTERACTION)
             
             # Шукаємо у календарі, чи дати недоступні
             try:
-                # Пробуємо клікнути по 1 серпня (наша заброньована дата)
-                unavailable_date = self.page.locator('button:has-text("1")[disabled], .disabled:has-text("1"), .unavailable:has-text("1")').first
-                if unavailable_date.count() > 0:
+                # Пробуємо знайти недоступну дату (1 серпня)
+                unavailable_selectors = UIHelpers.get_unavailable_date_selectors("1")
+                unavailable_element = UIHelpers.find_element_by_selectors(self.page, unavailable_selectors)
+                
+                if unavailable_element:
                     # Дата правильно позначена як недоступна
                     assert True, "Заброньовані дати коректно позначені як недоступні"
                 else:
                     # Пробуємо клікнути по даті і перевірити, чи бронювання не проходить
                     try:
-                        date_button = self.page.locator('button:has-text("1"), .day:has-text("1")').first
-                        if date_button.count() > 0:
-                            date_button.click()
+                        calendar_selectors = UIHelpers.get_calendar_selectors("1")
+                        if UIHelpers.try_click_element(self.page, calendar_selectors):
                             # Якщо можемо клікнути, тест проходить, бо поведінка залежить від реалізації
                             assert True, "Перевірено поведінку вибору дати"
                     except:
@@ -405,23 +312,10 @@ class TestUserUI:
         page_content = self.page.content()
         
         # Перевіряємо, що сторінка не порожня
-        assert len(page_content) > 100, "Сторінка повинна містити контент"
+        assert len(page_content) > UIConstants.MIN_PAGE_CONTENT_LENGTH, "Сторінка повинна містити контент"
         
         # Шукаємо типові елементи для бронювання
-        booking_elements = [
-            'input[placeholder*="name"], input[name*="name"]',
-            'input[type="email"], input[placeholder*="email"]',
-            'input[type="tel"], input[placeholder*="phone"]',
-            'button:has-text("Book"), input[value*="Book"]'
-        ]
-        
-        elements_found = 0
-        for selector in booking_elements:
-            try:
-                if self.page.locator(selector).count() > 0:
-                    elements_found += 1
-            except:
-                continue
+        elements_found = UIHelpers.count_booking_elements(self.page)
         
         # Маємо знайти хоча б деякі елементи для бронювання
         assert elements_found > 0, "На сторінці мають бути елементи для бронювання"
@@ -429,7 +323,7 @@ class TestUserUI:
         # Пробуємо взаємодіяти зі сторінкою (прокрутка, клік тощо)
         try:
             self.page.mouse.move(100, 100)
-            self.page.wait_for_timeout(1000)
+            self.page.wait_for_timeout(UIConstants.TIMEOUT_MOUSE_MOVE)
         except:
             pass
         
