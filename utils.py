@@ -2,6 +2,7 @@ import json
 import requests
 from datetime import datetime, timedelta
 import time
+from test_data import base_url, api_url, admin_credentials, valid_booking_data, invalid_booking_data, room_data
 
 class TestUtils:
     """Utility class for common test operations and data management"""
@@ -13,44 +14,19 @@ class TestUtils:
         self.api_url = self.test_data.get("api_url", f"{self.base_url}/booking")
         self.admin_credentials = self.test_data["admin_credentials"]
         self.session = requests.Session()
+        self.test_data = {
+            "valid_booking_data": valid_booking_data,
+            "invalid_booking_data": invalid_booking_data,
+            "room_data": room_data
+        }   
 
     def get_test_data(self):
         try:
             with open(self.test_data_file, 'r') as file:
                 return json.load(file)
         except FileNotFoundError:
-            return self._get_default_test_data()
+            return "File not Found"
 
-    def _get_default_test_data(self):
-        """Default test data structure"""
-        return {
-            "base_url": "https://automationintesting.online",
-            "api_url": "https://automationintesting.online/booking",
-            "admin_credentials": {
-                "username": "admin",
-                "password": "password"
-            },
-            "valid_booking_data": {
-                "firstname": "John",
-                "lastname": "Doe",
-                "email": "john.doe@example.com",
-                "phone": "1234567890"
-            },
-            "invalid_booking_data": {
-                "firstname": "",
-                "lastname": "",
-                "email": "not-an-email",
-                "phone": "abcde"
-            },
-            "room_data": {
-                "roomName": "Test Room",
-                "type": "Single",
-                "accessible": True,
-                "description": "Test room for automation",
-                "features": ["WiFi", "TV", "Safe"],
-                "roomPrice": 100
-            }
-        }
 
     def get_admin_auth_token(self):
         """Get authentication token for admin operations"""
