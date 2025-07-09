@@ -10,7 +10,7 @@ Steps:
    - First Name: John
    - Last Name: Doe
    - Email: john.doe@example.com
-   - Phone: 1234567890
+   - Phone: 0986288081
 3. Click on 'Book'
 Expected Result:
 - Booking confirmation message appears
