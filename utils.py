@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 import time
 from test_data import base_url, api_url, admin_credentials, valid_booking_data, invalid_booking_data, room_data
 
-class TestUtils:
+class TestUtilities:
     """Utility class for common test operations and data management"""
 
     def __init__(self):
@@ -14,19 +14,40 @@ class TestUtils:
         self.api_url = self.test_data.get("api_url", f"{self.base_url}/booking")
         self.admin_credentials = self.test_data["admin_credentials"]
         self.session = requests.Session()
-        self.test_data = {
+        # Оновлюємо test_data з актуальними даними
+        self.test_data.update({
             "valid_booking_data": valid_booking_data,
             "invalid_booking_data": invalid_booking_data,
             "room_data": room_data
-        }   
+        })
 
     def get_test_data(self):
+        
         try:
             with open(self.test_data_file, 'r') as file:
                 return json.load(file)
         except FileNotFoundError:
-            return "File not Found"
-
+            print(f"Warning: {self.test_data_file} not found, using fallback data")
+        
+            return {
+                "base_url": base_url,
+                "api_url": api_url,
+                "admin_credentials": admin_credentials,
+                "valid_booking_data": valid_booking_data,
+                "invalid_booking_data": invalid_booking_data,
+                "room_data": room_data
+            }
+        except json.JSONDecodeError as e:
+            print(f"Error: Invalid JSON in {self.test_data_file}: {e}")
+            
+            return {
+                "base_url": base_url,
+                "api_url": api_url,
+                "admin_credentials": admin_credentials,
+                "valid_booking_data": valid_booking_data,
+                "invalid_booking_data": invalid_booking_data,
+                "room_data": room_data
+            }
 
     def get_admin_auth_token(self):
         """Get authentication token for admin operations"""

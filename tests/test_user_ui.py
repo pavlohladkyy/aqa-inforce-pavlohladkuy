@@ -7,7 +7,7 @@ from playwright.sync_api import sync_playwright, expect
 
 # Додаємо батьківську директорію до шляху для імпорту utils
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from utils import TestUtils
+from utils import TestUtilities
 from ui_constants import UISelectors, UIConstants, UIHelpers
 
 
@@ -17,7 +17,7 @@ class TestUserUI:
     @pytest.fixture(autouse=True)
     def setup(self):
         """Налаштування браузера та тестових даних"""
-        self.utils = TestUtils()
+        self.utils = TestUtilities()
         self.test_data = self.utils.get_test_data()
         self.base_url = self.test_data["base_url"]
         self.api_url = self.test_data["api_url"]
